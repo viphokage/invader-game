@@ -56,7 +56,6 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     let gameStarted = false;
-
     const startScreen = document.getElementById('startScreen');
     function startGame() {
       startScreen.style.display = 'none';
@@ -75,17 +74,114 @@
       }
     });
 
-    // --- 以下にゲームロジックを追加していく ---
+    // --- Player Setup ---
+    const player = {
+      x: canvas.width / 2 - 15,
+      y: canvas.height - 60,
+      width: 30,
+      height: 30,
+      color: 'blue',
+      speed: 5
+    };
+
+    let keys = {};
+    document.addEventListener('keydown', e => keys[e.key] = true);
+    document.addEventListener('keyup', e => keys[e.key] = false);
+
+    // --- Enemy Setup ---
+    const enemies = [];
+    for (let i = 0; i < 5; i++) {
+      for (let j = 0; j < 3; j++) {
+        enemies.push({
+          x: 60 + i * 60,
+          y: 60 + j * 60,
+          width: 40,
+          height: 40,
+          alive: true
+        });
+      }
+    }
+    let enemyDx = 2;
+
+    // --- Bullet Setup ---
+    const bullets = [];
+
+    document.addEventListener('keydown', e => {
+      if (e.code === 'Space' && gameStarted) {
+        bullets.push({
+          x: player.x + player.width / 2 - 2,
+          y: player.y,
+          width: 4,
+          height: 10,
+          speed: 7
+        });
+      }
+    });
 
     function gameLoop() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = 'black';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      // ゲーム描画ロジックをここに記述
 
-      if (gameStarted) {
-        requestAnimationFrame(gameLoop);
+      // Move player
+      if (keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
+      if (keys['ArrowRight'] && player.x + player.width < canvas.width) player.x += player.speed;
+
+      // Draw player
+      ctx.fillStyle = player.color;
+      ctx.fillRect(player.x, player.y, player.width, player.height);
+
+      // Move and draw enemies
+      let shiftDown = false;
+      for (let enemy of enemies) {
+        if (!enemy.alive) continue;
+        enemy.x += enemyDx;
+        if (enemy.x < 0 || enemy.x + enemy.width > canvas.width) shiftDown = true;
+        ctx.fillStyle = 'red';
+        ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
       }
+      if (shiftDown) {
+        enemyDx *= -1;
+        for (let enemy of enemies) {
+          enemy.y += 10;
+        }
+      }
+
+      // Move and draw bullets
+      for (let bullet of bullets) {
+        bullet.y -= bullet.speed;
+        ctx.fillStyle = 'black';
+        ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+      }
+
+      // Collision detection
+      for (let bullet of bullets) {
+        for (let enemy of enemies) {
+          if (enemy.alive &&
+              bullet.x < enemy.x + enemy.width &&
+              bullet.x + bullet.width > enemy.x &&
+              bullet.y < enemy.y + enemy.height &&
+              bullet.y + bullet.height > enemy.y) {
+            enemy.alive = false;
+            bullet.y = -100;
+          }
+        }
+      }
+
+      // Remove off-screen bullets
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        if (bullets[i].y + bullets[i].height < 0) {
+          bullets.splice(i, 1);
+        }
+      }
+
+      // Check win condition
+      if (enemies.every(e => !e.alive)) {
+        ctx.fillStyle = 'white';
+        ctx.font = '24px sans-serif';
+        ctx.fillText('🎉 Good! You are verified!', 60, canvas.height / 2);
+        return;
+      }
+
+      requestAnimationFrame(gameLoop);
     }
   </script>
 </body>
