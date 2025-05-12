@@ -20,7 +20,7 @@
       max-width: 100%;
       height: auto;
     }
-    #startScreen {
+    #startScreen, #endScreen {
       position: absolute;
       top: 0;
       left: 0;
@@ -33,15 +33,55 @@
       justify-content: center;
       z-index: 10;
     }
-    #startScreen img {
+    #startScreen img, #endScreen img {
       max-width: 80%;
       height: auto;
       margin-bottom: 20px;
     }
-    #startScreen h1, #startScreen p {
+    #startScreen h1, #startScreen p, #endScreen h1, #endScreen p {
       color: white;
       margin: 10px;
       font-family: sans-serif;
+    }
+    #controls {
+      position: absolute;
+      bottom: 10px;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+    }
+    .control-button {
+      width: 60px;
+      height: 60px;
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: 10px;
+      text-align: center;
+      line-height: 60px;
+      font-size: 24px;
+      font-weight: bold;
+      user-select: none;
+    }
+    #restartBtn {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 16px;
+      background: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    #endMessage {
+      font-size: 24px;
+      text-align: center;
+    }
+    .victory {
+      font-size: 36px;
+      color: lightgreen;
+    }
+    .defeat {
+      font-size: 28px;
+      color: red;
     }
   </style>
 </head>
@@ -51,18 +91,34 @@
     <h1>VS TERENCE</h1>
     <p>Press SPACE or Tap to Start</p>
   </div>
+  <div id="endScreen" style="display: none;">
+    <h1 id="endMessage"></h1>
+    <button id="restartBtn">LOVE TERENCE?</button>
+  </div>
   <canvas id="gameCanvas" width="480" height="640"></canvas>
+  <div id="controls">
+    <div class="control-button" id="leftBtn">◀</div>
+    <div class="control-button" id="shootBtn">⨉</div>
+    <div class="control-button" id="rightBtn">▶</div>
+  </div>
   <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     let gameStarted = false;
     const startScreen = document.getElementById('startScreen');
+    const endScreen = document.getElementById('endScreen');
+    const endMessage = document.getElementById('endMessage');
+    const restartBtn = document.getElementById('restartBtn');
+
     function startGame() {
       startScreen.style.display = 'none';
+      endScreen.style.display = 'none';
       gameStarted = true;
+      resetGame();
       requestAnimationFrame(gameLoop);
     }
 
+    restartBtn.addEventListener('click', startGame);
     document.addEventListener('keydown', e => {
       if (!gameStarted && e.code === 'Space') {
         startGame();
@@ -74,40 +130,55 @@
       }
     });
 
-    // --- Player Setup ---
-    const player = {
-      x: canvas.width / 2 - 15,
-      y: canvas.height - 60,
-      width: 30,
-      height: 30,
-      color: 'blue',
-      speed: 5
-    };
+    const playerImage = new Image();
+    playerImage.src = '1371132686005178548.webp';
+    const samoImage = new Image();
+    samoImage.src = 'samo.webp';
 
-    let keys = {};
+    let player, keys, bullets, enemyBullets, enemies, enemyDx;
+
+    function resetGame() {
+      player = {
+        x: canvas.width / 2 - 15,
+        y: canvas.height - 60,
+        width: 30,
+        height: 30,
+        speed: 5
+      };
+
+      keys = {};
+      bullets = [];
+      enemyBullets = [];
+      enemyDx = 2;
+
+      enemies = [];
+      for (let i = 0; i < 5; i++) {
+        for (let j = 0; j < 3; j++) {
+          const isBoss = i === 2 && j === 0;
+          enemies.push({
+            x: 60 + i * 60,
+            y: 60 + j * 60,
+            width: 40,
+            height: 40,
+            alive: true,
+            isBoss,
+            health: isBoss ? 3 : 1
+          });
+        }
+      }
+    }
+
     document.addEventListener('keydown', e => keys[e.key] = true);
     document.addEventListener('keyup', e => keys[e.key] = false);
 
-    // --- Enemy Setup ---
-    const enemies = [];
-    for (let i = 0; i < 5; i++) {
-      for (let j = 0; j < 3; j++) {
-        enemies.push({
-          x: 60 + i * 60,
-          y: 60 + j * 60,
-          width: 40,
-          height: 40,
-          alive: true
-        });
-      }
-    }
-    let enemyDx = 2;
+    document.getElementById('leftBtn').addEventListener('touchstart', () => keys['ArrowLeft'] = true);
+    document.getElementById('leftBtn').addEventListener('touchend', () => keys['ArrowLeft'] = false);
+    document.getElementById('rightBtn').addEventListener('touchstart', () => keys['ArrowRight'] = true);
+    document.getElementById('rightBtn').addEventListener('touchend', () => keys['ArrowRight'] = false);
+    document.getElementById('shootBtn').addEventListener('touchstart', shootBullet);
 
-    // --- Bullet Setup ---
-    const bullets = [];
-
-    document.addEventListener('keydown', e => {
-      if (e.code === 'Space' && gameStarted) {
+    function shootBullet() {
+      if (gameStarted) {
         bullets.push({
           x: player.x + player.width / 2 - 2,
           y: player.y,
@@ -116,28 +187,57 @@
           speed: 7
         });
       }
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.code === 'Space' && gameStarted) {
+        shootBullet();
+      }
     });
+
+    function endGame(message, victory = false) {
+      gameStarted = false;
+      endMessage.innerText = message;
+      endMessage.className = victory ? 'victory' : 'defeat';
+      endScreen.style.display = 'flex';
+    }
 
     function gameLoop() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Move player
       if (keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
       if (keys['ArrowRight'] && player.x + player.width < canvas.width) player.x += player.speed;
+      ctx.drawImage(playerImage, player.x, player.y, player.width, player.height);
 
-      // Draw player
-      ctx.fillStyle = player.color;
-      ctx.fillRect(player.x, player.y, player.width, player.height);
-
-      // Move and draw enemies
       let shiftDown = false;
       for (let enemy of enemies) {
         if (!enemy.alive) continue;
         enemy.x += enemyDx;
         if (enemy.x < 0 || enemy.x + enemy.width > canvas.width) shiftDown = true;
-        ctx.fillStyle = 'red';
-        ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+        const img = enemy.isBoss ? samoImage : playerImage;
+        ctx.drawImage(img, enemy.x, enemy.y, enemy.width, enemy.height);
+
+        if (Math.random() < 0.005) {
+          enemyBullets.push({
+            x: enemy.x + enemy.width / 2 - 2,
+            y: enemy.y + enemy.height,
+            width: 4,
+            height: 10,
+            speed: 4
+          });
+        }
+
+        if (
+          player.x < enemy.x + enemy.width &&
+          player.x + player.width > enemy.x &&
+          player.y < enemy.y + enemy.height &&
+          player.y + player.height > enemy.y
+        ) {
+          endGame('💥 You are NOT HUMAN......');
+          return;
+        }
       }
+
       if (shiftDown) {
         enemyDx *= -1;
         for (let enemy of enemies) {
@@ -145,14 +245,12 @@
         }
       }
 
-      // Move and draw bullets
       for (let bullet of bullets) {
         bullet.y -= bullet.speed;
         ctx.fillStyle = 'black';
         ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
       }
 
-      // Collision detection
       for (let bullet of bullets) {
         for (let enemy of enemies) {
           if (enemy.alive &&
@@ -160,24 +258,35 @@
               bullet.x + bullet.width > enemy.x &&
               bullet.y < enemy.y + enemy.height &&
               bullet.y + bullet.height > enemy.y) {
-            enemy.alive = false;
+            enemy.health--;
+            if (enemy.health <= 0) enemy.alive = false;
             bullet.y = -100;
           }
         }
       }
 
-      // Remove off-screen bullets
-      for (let i = bullets.length - 1; i >= 0; i--) {
-        if (bullets[i].y + bullets[i].height < 0) {
-          bullets.splice(i, 1);
+      bullets = bullets.filter(b => b.y + b.height >= 0);
+
+      for (let eBullet of enemyBullets) {
+        eBullet.y += eBullet.speed;
+        ctx.fillStyle = 'red';
+        ctx.fillRect(eBullet.x, eBullet.y, eBullet.width, eBullet.height);
+
+        if (
+          eBullet.x < player.x + player.width &&
+          eBullet.x + eBullet.width > player.x &&
+          eBullet.y < player.y + player.height &&
+          eBullet.y + eBullet.height > player.y
+        ) {
+          endGame('💥 You are NOT HUMAN......');
+          return;
         }
       }
 
-      // Check win condition
+      enemyBullets = enemyBullets.filter(b => b.y <= canvas.height);
+
       if (enemies.every(e => !e.alive)) {
-        ctx.fillStyle = 'white';
-        ctx.font = '24px sans-serif';
-        ctx.fillText('🎉 Good! You are verified!', 60, canvas.height / 2);
+        endGame('🎉 You are verify!', true);
         return;
       }
 
