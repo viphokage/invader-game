@@ -2,21 +2,33 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>インベーダー風ゲーム（敵画像あり）</title>
+  <title>VS TERENCE</title>
   <style>
-    body { margin: 0; background: #000; color: white; text-align: center; font-family: sans-serif; }
-    canvas { background: #111; display: block; margin: 20px auto; border: 2px solid #555; }
+    body { margin: 0; background: #000; color: white; font-family: sans-serif; }
+    canvas { display: block; margin: 0 auto; background: #111; border: 2px solid #555; }
+    #message {
+      position: absolute;
+      top: 40%;
+      width: 100%;
+      text-align: center;
+      font-size: 24px;
+      color: #0f0;
+    }
   </style>
 </head>
 <body>
-  <h1>インベーダー風ゲーム</h1>
   <canvas id="gameCanvas" width="480" height="320"></canvas>
+  <div id="message">🎮 VS TERENCE<br>Press [Space] to Start</div>
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
+    const message = document.getElementById("message");
 
     const enemyImg = new Image();
-    enemyImg.src = "1371132686005178548.webp"; // ←画像名は同じフォルダにあるものを指定
+    enemyImg.src = "1371132686005178548.webp"; // 同じフォルダにあること！
+
+    let gameStarted = false;
+    let gameOver = false;
 
     const player = {
       x: canvas.width / 2 - 15,
@@ -28,14 +40,21 @@
     };
 
     const keys = {};
-    document.addEventListener("keydown", e => keys[e.key] = true);
+    document.addEventListener("keydown", e => {
+      keys[e.key] = true;
+
+      if (!gameStarted && e.key === " ") {
+        startGame();
+      }
+    });
+
     document.addEventListener("keyup", e => keys[e.key] = false);
 
     const enemies = [];
     const enemySpeed = { x: 1, y: 0 };
-    let moveDown = false;
 
     function createEnemies() {
+      enemies.length = 0;
       for (let row = 0; row < 3; row++) {
         for (let col = 0; col < 8; col++) {
           enemies.push({
@@ -78,7 +97,10 @@
     }
 
     let lastShot = 0;
+
     function update() {
+      if (!gameStarted || gameOver) return;
+
       if (keys["ArrowLeft"] && player.x > 0) player.x -= player.speed;
       if (keys["ArrowRight"] && player.x + player.width < canvas.width) player.x += player.speed;
       if (keys[" "] && Date.now() - lastShot > 300) {
@@ -97,7 +119,7 @@
         }
       });
       if (hitEdge) {
-        enemies.forEach(e => { e.y += 10; });
+        enemies.forEach(e => e.y += 10);
         enemySpeed.x *= -1;
       }
 
@@ -114,13 +136,21 @@
           }
         });
       });
+
+      // 勝利判定
+      if (enemies.every(e => !e.alive)) {
+        message.innerHTML = "🎉 Good! You are verified! 🎉";
+        gameOver = true;
+      }
     }
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      drawPlayer();
-      drawBullets();
-      drawEnemies();
+      if (gameStarted) {
+        drawPlayer();
+        drawBullets();
+        drawEnemies();
+      }
     }
 
     function gameLoop() {
@@ -129,9 +159,18 @@
       requestAnimationFrame(gameLoop);
     }
 
-    enemyImg.onload = () => {
+    function startGame() {
+      message.innerHTML = "";
+      gameStarted = true;
+      gameOver = false;
+      player.x = canvas.width / 2 - 15;
+      player.bullets = [];
       createEnemies();
-      gameLoop();
+    }
+
+    enemyImg.onload = () => {
+      draw(); // 初期表示だけ
+      gameLoop(); // 開始画面中もループする
     };
   </script>
 </body>
