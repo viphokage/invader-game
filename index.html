@@ -3,29 +3,54 @@
 <head>
   <meta charset="UTF-8">
   <title>VS TERENCE</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    body { margin: 0; background: #000; color: white; font-family: sans-serif; }
-    canvas { display: block; margin: 0 auto; background: #111; border: 2px solid #555; }
+    body {
+      margin: 0;
+      background: #000;
+      color: white;
+      font-family: sans-serif;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      margin: 0 auto;
+      background: #111;
+      border: 2px solid #555;
+      touch-action: none;
+    }
     #message {
       position: absolute;
-      top: 40%;
+      top: 35%;
       width: 100%;
       text-align: center;
-      font-size: 24px;
+      font-size: 20px;
       color: #0f0;
+      z-index: 2;
+    }
+    #touchOverlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
     }
   </style>
 </head>
 <body>
   <canvas id="gameCanvas" width="480" height="320"></canvas>
-  <div id="message">🎮 VS TERENCE<br>Press [Space] to Start</div>
+  <div id="message">🎮 VS TERENCE<br>Press [Space] or Tap to Start</div>
+  <div id="touchOverlay"></div>
+
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
     const message = document.getElementById("message");
+    const overlay = document.getElementById("touchOverlay");
 
     const enemyImg = new Image();
-    enemyImg.src = "1371132686005178548.webp"; // 同じフォルダにあること！
+    enemyImg.src = "1371132686005178548.webp";
 
     let gameStarted = false;
     let gameOver = false;
@@ -42,13 +67,44 @@
     const keys = {};
     document.addEventListener("keydown", e => {
       keys[e.key] = true;
-
       if (!gameStarted && e.key === " ") {
         startGame();
       }
     });
 
     document.addEventListener("keyup", e => keys[e.key] = false);
+
+    // モバイルタッチ用
+    overlay.addEventListener("touchstart", handleTouch);
+    overlay.addEventListener("touchmove", handleTouch);
+    overlay.addEventListener("touchend", () => {
+      keys["ArrowLeft"] = false;
+      keys["ArrowRight"] = false;
+    });
+
+    function handleTouch(e) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+
+      if (!gameStarted) {
+        startGame();
+        return;
+      }
+
+      if (y > canvas.height * 0.8) {
+        // 画面下 → シュート
+        keys[" "] = true;
+      } else if (x < canvas.width / 2) {
+        keys["ArrowLeft"] = true;
+        keys["ArrowRight"] = false;
+      } else {
+        keys["ArrowRight"] = true;
+        keys["ArrowLeft"] = false;
+      }
+    }
 
     const enemies = [];
     const enemySpeed = { x: 1, y: 0 };
@@ -106,11 +162,11 @@
       if (keys[" "] && Date.now() - lastShot > 300) {
         shoot();
         lastShot = Date.now();
+        keys[" "] = false;
       }
 
       updateBullets();
 
-      // 敵の動き
       let hitEdge = false;
       enemies.forEach(e => {
         if (e.alive) {
@@ -123,7 +179,6 @@
         enemySpeed.x *= -1;
       }
 
-      // 当たり判定
       player.bullets.forEach(bullet => {
         enemies.forEach(e => {
           if (e.alive &&
@@ -137,7 +192,6 @@
         });
       });
 
-      // 勝利判定
       if (enemies.every(e => !e.alive)) {
         message.innerHTML = "🎉 Good! You are verified! 🎉";
         gameOver = true;
@@ -169,8 +223,8 @@
     }
 
     enemyImg.onload = () => {
-      draw(); // 初期表示だけ
-      gameLoop(); // 開始画面中もループする
+      draw();
+      gameLoop();
     };
   </script>
 </body>
