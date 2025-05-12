@@ -1,231 +1,92 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>VS TERENCE</title>
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VS TERENCE</title>
   <style>
-    body {
+    html, body {
       margin: 0;
-      background: #000;
-      color: white;
-      font-family: sans-serif;
+      padding: 0;
+      background: black;
       overflow: hidden;
+      height: 100%;
+      width: 100%;
     }
     canvas {
       display: block;
-      margin: 0 auto;
-      background: #111;
-      border: 2px solid #555;
-      touch-action: none;
+      margin: auto;
+      background: white;
+      max-width: 100%;
+      height: auto;
     }
-    #message {
-      position: absolute;
-      top: 35%;
-      width: 100%;
-      text-align: center;
-      font-size: 20px;
-      color: #0f0;
-      z-index: 2;
-    }
-    #touchOverlay {
+    #startScreen {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      z-index: 1;
+      background-color: black;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    #startScreen img {
+      max-width: 80%;
+      height: auto;
+      margin-bottom: 20px;
+    }
+    #startScreen h1, #startScreen p {
+      color: white;
+      margin: 10px;
+      font-family: sans-serif;
     }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="480" height="320"></canvas>
-  <div id="message">🎮 VS TERENCE<br>Press [Space] or Tap to Start</div>
-  <div id="touchOverlay"></div>
-
+  <div id="startScreen">
+    <img src="top_01.png" alt="Start Image" />
+    <h1>VS TERENCE</h1>
+    <p>Press SPACE or Tap to Start</p>
+  </div>
+  <canvas id="gameCanvas" width="480" height="640"></canvas>
   <script>
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
-    const message = document.getElementById("message");
-    const overlay = document.getElementById("touchOverlay");
-
-    const enemyImg = new Image();
-    enemyImg.src = "1371132686005178548.webp";
-
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
     let gameStarted = false;
-    let gameOver = false;
 
-    const player = {
-      x: canvas.width / 2 - 15,
-      y: canvas.height - 30,
-      width: 30,
-      height: 10,
-      speed: 5,
-      bullets: []
-    };
-
-    const keys = {};
-    document.addEventListener("keydown", e => {
-      keys[e.key] = true;
-      if (!gameStarted && e.key === " ") {
-        startGame();
-      }
-    });
-
-    document.addEventListener("keyup", e => keys[e.key] = false);
-
-    // モバイルタッチ用
-    overlay.addEventListener("touchstart", handleTouch);
-    overlay.addEventListener("touchmove", handleTouch);
-    overlay.addEventListener("touchend", () => {
-      keys["ArrowLeft"] = false;
-      keys["ArrowRight"] = false;
-    });
-
-    function handleTouch(e) {
-      e.preventDefault();
-      const touch = e.touches[0];
-      const rect = canvas.getBoundingClientRect();
-      const x = touch.clientX - rect.left;
-      const y = touch.clientY - rect.top;
-
-      if (!gameStarted) {
-        startGame();
-        return;
-      }
-
-      if (y > canvas.height * 0.8) {
-        // 画面下 → シュート
-        keys[" "] = true;
-      } else if (x < canvas.width / 2) {
-        keys["ArrowLeft"] = true;
-        keys["ArrowRight"] = false;
-      } else {
-        keys["ArrowRight"] = true;
-        keys["ArrowLeft"] = false;
-      }
-    }
-
-    const enemies = [];
-    const enemySpeed = { x: 1, y: 0 };
-
-    function createEnemies() {
-      enemies.length = 0;
-      for (let row = 0; row < 3; row++) {
-        for (let col = 0; col < 8; col++) {
-          enemies.push({
-            x: 40 + col * 50,
-            y: 30 + row * 40,
-            width: 32,
-            height: 32,
-            alive: true
-          });
-        }
-      }
-    }
-
-    function drawPlayer() {
-      ctx.fillStyle = "white";
-      ctx.fillRect(player.x, player.y, player.width, player.height);
-    }
-
-    function drawBullets() {
-      ctx.fillStyle = "yellow";
-      player.bullets.forEach(b => ctx.fillRect(b.x, b.y, 2, 10));
-    }
-
-    function drawEnemies() {
-      enemies.forEach(e => {
-        if (e.alive) ctx.drawImage(enemyImg, e.x, e.y, e.width, e.height);
-      });
-    }
-
-    function updateBullets() {
-      player.bullets.forEach(b => b.y -= 5);
-      player.bullets = player.bullets.filter(b => b.y > 0);
-    }
-
-    function shoot() {
-      player.bullets.push({
-        x: player.x + player.width / 2 - 1,
-        y: player.y
-      });
-    }
-
-    let lastShot = 0;
-
-    function update() {
-      if (!gameStarted || gameOver) return;
-
-      if (keys["ArrowLeft"] && player.x > 0) player.x -= player.speed;
-      if (keys["ArrowRight"] && player.x + player.width < canvas.width) player.x += player.speed;
-      if (keys[" "] && Date.now() - lastShot > 300) {
-        shoot();
-        lastShot = Date.now();
-        keys[" "] = false;
-      }
-
-      updateBullets();
-
-      let hitEdge = false;
-      enemies.forEach(e => {
-        if (e.alive) {
-          e.x += enemySpeed.x;
-          if (e.x <= 0 || e.x + e.width >= canvas.width) hitEdge = true;
-        }
-      });
-      if (hitEdge) {
-        enemies.forEach(e => e.y += 10);
-        enemySpeed.x *= -1;
-      }
-
-      player.bullets.forEach(bullet => {
-        enemies.forEach(e => {
-          if (e.alive &&
-              bullet.x < e.x + e.width &&
-              bullet.x + 2 > e.x &&
-              bullet.y < e.y + e.height &&
-              bullet.y + 10 > e.y) {
-            e.alive = false;
-            bullet.y = -10;
-          }
-        });
-      });
-
-      if (enemies.every(e => !e.alive)) {
-        message.innerHTML = "🎉 Good! You are verified! 🎉";
-        gameOver = true;
-      }
-    }
-
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      if (gameStarted) {
-        drawPlayer();
-        drawBullets();
-        drawEnemies();
-      }
-    }
-
-    function gameLoop() {
-      update();
-      draw();
+    const startScreen = document.getElementById('startScreen');
+    function startGame() {
+      startScreen.style.display = 'none';
+      gameStarted = true;
       requestAnimationFrame(gameLoop);
     }
 
-    function startGame() {
-      message.innerHTML = "";
-      gameStarted = true;
-      gameOver = false;
-      player.x = canvas.width / 2 - 15;
-      player.bullets = [];
-      createEnemies();
-    }
+    document.addEventListener('keydown', e => {
+      if (!gameStarted && e.code === 'Space') {
+        startGame();
+      }
+    });
+    startScreen.addEventListener('click', () => {
+      if (!gameStarted) {
+        startGame();
+      }
+    });
 
-    enemyImg.onload = () => {
-      draw();
-      gameLoop();
-    };
+    // --- 以下にゲームロジックを追加していく ---
+
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'black';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // ゲーム描画ロジックをここに記述
+
+      if (gameStarted) {
+        requestAnimationFrame(gameLoop);
+      }
+    }
   </script>
 </body>
 </html>
